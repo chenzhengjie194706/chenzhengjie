@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>附近门店查询</title>
+    <style>
+        body { font-family: "Microsoft YaHei", sans-serif; margin: 0; padding: 0; background: #f5f7fa; }
+        .header { background: #1677ff; color: #fff; padding: 15px; text-align: center; font-size: 18px; }
+        .loading { text-align: center; padding: 40px 20px; color: #666; font-size: 15px; }
+        .store-item { background: #fff; margin: 10px; border-radius: 8px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .store-name { font-size: 16px; font-weight: bold; color: #222; margin-bottom: 6px; }
+        .store-distance { font-size: 14px; color: #1677ff; margin-bottom: 6px; }
+        .store-address { font-size: 13px; color: #666; margin-bottom: 12px; }
+        .btn { display: inline-block; background: #1677ff; color: #fff; padding: 7px 14px; border-radius: 4px; text-decoration: none; font-size: 14px; margin-right: 8px; }
+        .btn-tel { background: #00b42a; }
+        .error { text-align: center; padding: 40px 20px; color: #f53f3f; }
+    </style>
+</head>
+<body>
+    <div class="header">附近门店查询</div>
+    <div id="content" class="loading">正在获取位置，请允许定位权限...</div>
+
+<!-- 引入高德地图JS API 替换为你自己的 Key -->
+<script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=90ef13480483047a0dd5147dc34e5622"></script>
+<script>
+// ========== 1. 填写你的门店信息（高德坐标拾取器获取经纬度） ==========
+const storeList = [
+    {
+        name: "喜盈门作业帮",
+        address: "湖南省长沙市喜盈门范城",
+        lat: 113.03,
+        lng: 28.13,
+        phone: "18173124661"
+    },
+    {
+        name: "XX门店二",
+        address: "XX市XX区XX路XX号",
+        lat: 39.9847,
+        lng: 116.3046,
+        phone: "400-1234567"
+    }
+    // 可继续追加更多门店
+];
+
+// ========== 2. 计算两点直线距离(公里) ==========
+function calcDistance(lat1, lng1, lat2, lng2) {
+    const R = 6378.137;
+    const rad = Math.PI / 180;
+    const a = (lat2 - lat1) * rad;
+    const b = (lng2 - lng1) * rad;
+    const c = Math.sin(a/2) * Math.sin(a/2) + Math.cos(lat1*rad) * Math.cos(lat2*rad) * Math.sin(b/2) * Math.sin(b/2);
+    const d = 2 * Math.atan2(Math.sqrt(c), Math.sqrt(1-c));
+    return (R * d).toFixed(2);
+}
+
+// ========== 3. 获取定位、排序门店、渲染页面 ==========
+function getLocal() {
+    const contentDom = document.getElementById("content");
+    // 调用高德定位
+    AMap.plugin('AMap.Geolocation', function() {
+        const geolocation = new AMap.Geolocation({
+            enableHighAccuracy: true,
+            timeout: 10000
+        });
+
+        geolocation.getCurrentPosition(function(status, result) {
+            if (status === 'complete') {
+                const userLat = result.position.lat;
+                const userLng = result.position.lng;
+
+                // 遍历计算距离并排序
+                let arr = storeList.map(item => {
+                    item.distance = calcDistance(userLat, userLng, item.lat, item.lng);
+                    return item;
+                }).sort((x, y) => x.distance - y.distance);
+
+                // 拼接页面HTML
+                let html = "";
+                arr.forEach(shop => {
+                    // 高德跳转导航链接
+                    const navUrl = `https://ditu.amap.com/search?query=${encodeURIComponent(shop.name)}&lat=${shop.lat}&lng=${shop.lng}`;
+                    html += `
+                    <div class="store-item">
+                        <div class="store-name">${shop.name}</div>
+                        <div class="store-distance">距您 ${shop.distance} 公里</div>
+                        <div class="store-address">地址：${shop.address}</div>
+                        <a href="${navUrl}" class="btn">立即导航</a>
+                        <a href="tel:${shop.phone}" class="btn btn-tel">电话咨询</a>
+                    </div>
+                    `;
+                });
+                contentDom.innerHTML = html;
+            } else {
+                contentDom.innerHTML = `<div class="error">定位失败，请开启手机定位并允许权限</div>`;
+            }
+        });
+    });
+}
+
+window.onload = getLocal;
+</script>
+</body>
+</html>
